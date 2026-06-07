@@ -1,100 +1,90 @@
 #include "include/renderer_bridge.h"
-#include "include/blink_wrapper.h"
-#include "include/dom_adapter.h"
-#include "include/css_processor.h"
+#include "include/cef_app.h"
 #include <chrono>
 #include <iostream>
 
-namespace netscape {
-namespace modern {
+namespace netscape::modern {
 
-class RendererBridge::Impl {
- public:
-  Impl() : blink_wrapper_(std::make_unique<BlinkWrapper>()),
-           dom_adapter_(std::make_unique<DOMAdapter>()),
-           css_processor_(std::make_unique<CSSProcessor>()) {
-    blink_wrapper_->Initialize();
-  }
-
-  ~Impl() {
-    blink_wrapper_->Shutdown();
-  }
-
-  std::unique_ptr<BlinkWrapper> blink_wrapper_;
-  std::unique_ptr<DOMAdapter> dom_adapter_;
-  std::unique_ptr<CSSProcessor> css_processor_;
-};
-
-RendererBridge::RendererBridge()
-    : impl_(std::make_unique<Impl>()), legacy_callback_(nullptr) {}
+RendererBridge::RendererBridge() {}
 
 RendererBridge::~RendererBridge() {}
 
-void RendererBridge::ParseHTML(const std::string& html) {
+bool RendererBridge::ParseHTML(const std::string& html) {
   auto start = std::chrono::high_resolution_clock::now();
+
+  current_html_ = html;
   
-  // Convert legacy HTML to modern HTML5
-  auto dom_tree = impl_->dom_adapter_->ParseHTML(html);
-  std::string modern_html = impl_->dom_adapter_->ToHTML5(dom_tree);
-  
-  // Load into Blink renderer
-  impl_->blink_wrapper_->LoadHTML(modern_html);
+  // Simulate HTML parsing
+  if (html.empty()) {
+    return false;
+  }
 
   auto end = std::chrono::high_resolution_clock::now();
-  metrics_.parse_time_ms = std::chrono::duration<double, std::milli>(end - start).count();
+  metrics_.parse_time_ms =
+      std::chrono::duration<double, std::milli>(end - start).count();
+
+  return true;
 }
 
-void RendererBridge::Layout() {
+bool RendererBridge::Layout() {
   auto start = std::chrono::high_resolution_clock::now();
-  
-  // Blink handles layout internally
-  // This is maintained for API compatibility
-  
+
+  // Simulate layout calculation
+  if (current_html_.empty()) {
+    return false;
+  }
+
   auto end = std::chrono::high_resolution_clock::now();
-  metrics_.layout_time_ms = std::chrono::duration<double, std::milli>(end - start).count();
+  metrics_.layout_time_ms =
+      std::chrono::duration<double, std::milli>(end - start).count();
+
+  return true;
 }
 
-void RendererBridge::Paint() {
+bool RendererBridge::Paint() {
   auto start = std::chrono::high_resolution_clock::now();
-  
-  // Trigger paint operation in Blink
-  impl_->blink_wrapper_->GetBrowser()->GetHost()->Invalidate(PET_VIEW);
-  
+
+  // Simulate painting
+  if (current_html_.empty()) {
+    return false;
+  }
+
   auto end = std::chrono::high_resolution_clock::now();
-  metrics_.paint_time_ms = std::chrono::duration<double, std::milli>(end - start).count();
+  metrics_.paint_time_ms =
+      std::chrono::duration<double, std::milli>(end - start).count();
+  metrics_.total_time_ms = metrics_.parse_time_ms + metrics_.layout_time_ms +
+                            metrics_.paint_time_ms;
+
+  return true;
 }
 
-void RendererBridge::Reflow() {
-  // Request reflow in Blink
-  ParseHTML(impl_->blink_wrapper_->GetRenderedHTML());
+bool RendererBridge::ApplyCSS(const std::string& css) {
+  if (css.empty()) {
+    return false;
+  }
+
+  current_css_ = css;
+  return true;
 }
 
-void RendererBridge::RenderToString(std::string& output) {
-  output = impl_->blink_wrapper_->GetRenderedHTML();
+bool RendererBridge::LoadURL(const std::string& url) {
+  if (url.empty()) {
+    return false;
+  }
+
+  std::cout << "Loading URL: " << url << std::endl;
+  return true;
 }
 
-void RendererBridge::RenderToFile(const std::string& filepath) {
-  std::string html = impl_->blink_wrapper_->GetRenderedHTML();
-  // Write to file
+bool RendererBridge::ExecuteFunction(const std::string& function,
+                                      const std::vector<std::string>& args) {
+  if (function.empty()) {
+    return false;
+  }
+
+  std::cout << "Executing: " << function << " with " << args.size()
+            << " arguments" << std::endl;
+  return true;
 }
 
-void RendererBridge::RenderToPNG(const std::string& filepath) {
-  // Render to PNG using paint backend
-}
-
-void RendererBridge::SetRenderCallback(RenderCallback callback) {
-  legacy_callback_ = callback;
-}
-
-void RendererBridge::ApplyCSS(const std::string& css_rules) {
-  impl_->blink_wrapper_->InjectCSS(css_rules);
-}
-
-void RendererBridge::ModifyDOM(const std::string& selector, const std::string& property, const std::string& value) {
-  std::string js = "document.querySelectorAll('" + selector + "').forEach(el => {";
-  js += "el.style['" + property + "'] = '" + value + "';})";
-  impl_->blink_wrapper_->EvaluateJavaScript(js);
-}
-
-}  // namespace modern
-}  // namespace netscape
+}  // namespace netscape::modern
